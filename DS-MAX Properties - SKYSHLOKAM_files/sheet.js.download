@@ -1,0 +1,634 @@
+const script_URL = 'https://script.google.com/macros/s/AKfycbygRqAHOgYJmHU6DUv19I5coIS2DJlKS1LXTbL1MEBvjveL5IMzmR0YfA3ZI5w5u14/exec';
+
+function getTimestamp() {
+    const options = {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false 
+    };
+
+    const parts = new Intl.DateTimeFormat('en-GB', options).formatToParts(new Date());
+
+    const dateParts = {};
+    parts.forEach(part => {
+        if (part.type !== 'literal') {
+            dateParts[part.type] = part.value;
+        }
+    });
+
+    return `${dateParts.year}-${dateParts.month}-${dateParts.day} ${dateParts.hour}:${dateParts.minute}:${dateParts.second}`;
+}
+
+function getFilledAPi(name, phone, email, utmSource, timestamp, projectName){
+    return `https://5.strategicerpcloud.com/strategicerp/SaveFormField.do?actn=SaveData&id=873&globalvar=0&cloudcode=dsmax&idselected=0&idhidden=0&mobileform=yes&editids=15715/15800/31227/15730/state//31228/31229/31230/33937/15713/30754/34785/15716/&field15715=${encodeURIComponent(phone)}&fie1ld30754=DS Max&field34785=&field33937=${encodeURIComponent(email)}&field15716=&field31228=Digitals&field31229=${encodeURIComponent(utmSource)}&field31230=${encodeURIComponent(utmSource)}&field15713=${encodeURIComponent(name)}&state=852&field15800=${encodeURIComponent(timestamp)}&field31227=${encodeURIComponent(timestamp)}&field15730=${encodeURIComponent(projectName)}`;
+}
+
+function utmSourceMatch(utmSource){
+    switch(utmSource){
+        case "adgebra":
+            utmSource = "Adgebra";
+            break;
+        case "COLUMBIA_ADS" || "COLUMBIA_AD":
+            utmSource = "Columbia Ads";
+            break;
+        case "whatsapp":
+            utmSource = "Whattsapp lead";
+            break;
+        case "Taboola":
+            utmSource = "Taboola";
+            break;
+        default:
+            utmSource = "Google Ads";
+            break;
+    }
+
+    return utmSource;
+}
+
+function getProjectName(project){
+    switch(project){
+        case "Sahara grand":
+            project= "DSMAX SAHARAGRAND";
+            break;
+        case "Senate":
+            project= "DSMAX SENATE";
+            break;
+        case "samyak":
+            project= "DSMAX SAMYAK";
+            break;
+        case "Shresta":
+            project= "DSMAX SHRESTA";
+            break;
+        case "Sista grand":
+            project= "DSMAX SISTAGRAND";
+            break;
+        case "Skyblossom":
+            project= "DSMAX SKYBLOSSOM";
+            break;
+        case "Skyfields":
+            project= "DSMAX SKY FIELDS";
+            break;
+        case "Skysamurai":
+            project= "DSMAX SKY SAMURAI";
+            break;
+        case "SkySanjeevini":
+            project= "DSMAX SKY SANJEEVINI";
+            break;
+        case "Skysanman":
+            project= "DSMAX SKY SANMAN";
+            break;
+        case "SkyShlokam":
+            project= "DSMAX SKY SHLOKAM";
+            break;
+        case "SkyShubham":
+            project= "DSMAX SKYSUBHAM";
+            break;
+        case "Skysisira":
+            project= "DSMAX SKYSISIRA";
+            break;
+        case "Spoorthi":
+            project= "DSMAX SPOORTHI";
+            break;
+        case "Sukruth":
+            project= "DSMAX SUKRUTH";
+            break;
+        case "Swastika":
+            project= "DSMAX SWASTIKA";
+            break;
+    }
+
+    return project;
+}
+
+document.getElementById('onload_form').addEventListener('submit',async (e) => {
+    e.preventDefault();
+
+    const onload_form = e.target;
+
+    // Check if all required fields are filled and valid
+    if (onload_form.checkValidity()) {
+        // Additional validation for mobile number
+        const mobileNumber = onload_form.querySelector('.phone').value;
+
+        // Regular expression to check for 10 digits, and it should not start with 0 or 91
+        const mobileNumberPattern = /^(?!0|91)\d{10}$/;
+
+        // Check if the mobile number matches the pattern
+        if (!mobileNumberPattern.test(mobileNumber)) {
+            alert('Please enter a valid 10-digit mobile number');
+            return; // Prevent form submission
+        }
+
+        showOnLoadPleaseWait(); // Show "Please wait" message
+
+        // Get current date and time in Indian time zone
+        const currentTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+        // Append current time to form data
+        const formData = new FormData(onload_form);
+        formData.append('Updated At', currentTime);
+
+        const plainFormData = {};
+        formData.forEach((value, key) => {
+            plainFormData[key] = value;
+        });
+
+        const name = plainFormData['Name'];
+        const phone = plainFormData['Phone'];
+        const email = plainFormData['email'] ?? '';
+        const timestamp = getTimestamp();
+        let utmSource =plainFormData['Lead_Source']!=""? utmSourceMatch(plainFormData['Lead_Source']) : "Google Ads";
+        let projectName= getProjectName(plainFormData['Project']);
+
+        // Construct URL with query parameters
+        let apiURL = getFilledAPi(name, phone, email, utmSource, timestamp, projectName);
+        fetch(apiURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Background API call failed');
+                }
+                return response.text(); 
+            })
+            .then(text => {
+                formData.append('API Response', text);
+
+                return fetch(script_URL, { method: 'POST', body: formData });
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = "thank-you.html";
+                } else {
+                    console.error('Google Sheet Error!', response.statusText);
+                }
+            })
+            .catch(error => {
+                console.error('Error during submission:', error.message);
+            });
+
+    } else {
+        // If the form is invalid, prevent submission
+        onload_form.reportValidity();
+    }
+});
+
+document.getElementById('site_visit_form').addEventListener('submit', e => {
+    e.preventDefault();
+
+    const site_visit_form = e.target;
+
+    // Check if all required fields are filled and valid
+    if (site_visit_form.checkValidity()) {
+        // Additional validation for mobile number
+        const mobileNumber = site_visit_form.querySelector('.phone').value;
+        const mobileNumberPattern = /^\d{10}$/;
+
+        if (!mobileNumberPattern.test(mobileNumber)) {
+            alert('Please enter a valid 10-digit mobile number.');
+            return; // Prevent form submission
+        }
+
+        showSitePleaseWait(); // Show "Please wait" message
+
+        // Get current date and time in Indian time zone
+        const currentTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+        // Append current time to form data
+        const formData = new FormData(site_visit_form);
+        formData.append('Updated At', currentTime);
+
+        const plainFormData = {};
+        formData.forEach((value, key) => {
+            plainFormData[key] = value;
+        });
+
+        const name = plainFormData['Name'];
+        const phone = plainFormData['Phone'];
+        const email = plainFormData['email'] ?? '';
+        const timestamp = getTimestamp();
+        let utmSource =plainFormData['Lead_Source']!=""? utmSourceMatch(plainFormData['Lead_Source']) : "Google Ads";
+        let projectName= getProjectName(plainFormData['Project']);
+
+        // Construct URL with query parameters
+        let apiURL = getFilledAPi(name, phone, email, utmSource, timestamp, projectName);
+        fetch(apiURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Background API call failed');
+                }
+                return response.text(); 
+            })
+            .then(text => {
+                formData.append('API Response', text);
+
+                return fetch(script_URL, { method: 'POST', body: formData });
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = "thank-you.html";
+                } else {
+                    console.error('Google Sheet Error!', response.statusText);
+                }
+            })
+            .catch(error => {
+                console.error('Error during submission:', error.message);
+            });
+
+    } else {
+        // If the form is invalid, prevent submission
+        site_visit_form.reportValidity();
+    }
+});
+
+document.getElementById('price_form').addEventListener('submit', e => {
+    e.preventDefault();
+
+    const price_form = e.target;
+
+    // Check if all required fields are filled and valid
+    if (price_form.checkValidity()) {
+        // Additional validation for mobile number
+        const mobileNumber = price_form.querySelector('.phone').value;
+        const mobileNumberPattern = /^[1-9]\d{9}$/;
+
+        console.log(mobileNumber);
+        console.log(mobileNumberPattern.test(mobileNumber));
+
+        if (!mobileNumberPattern.test(mobileNumber)) {
+            alert('Please enter a valid 10-digit mobile number.');
+            return; // Prevent form submission
+        }
+
+        showPricePleaseWait(); // Show "Please wait" message
+
+        // Get current date and time in Indian time zone
+        const currentTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+        // Append current time to form data
+        const formData = new FormData(price_form);
+        formData.append('Updated At', currentTime);
+
+        const plainFormData = {};
+        formData.forEach((value, key) => {
+            plainFormData[key] = value;
+        });
+
+        const name = plainFormData['Name'];
+        const phone = plainFormData['Phone'];
+        const email = plainFormData['email'] ?? '';
+        const timestamp = getTimestamp();
+        let utmSource =plainFormData['Lead_Source']!=""? utmSourceMatch(plainFormData['Lead_Source']) : "Google Ads";
+        let projectName= getProjectName(plainFormData['Project']);
+
+        // Construct URL with query parameters
+        let apiURL = getFilledAPi(name, phone, email, utmSource, timestamp, projectName);
+        fetch(apiURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Background API call failed');
+                }
+                return response.text(); 
+            })
+            .then(text => {
+                formData.append('API Response', text);
+
+                return fetch(script_URL, { method: 'POST', body: formData });
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = "thank-you.html";
+                } else {
+                    console.error('Google Sheet Error!', response.statusText);
+                }
+            })
+            .catch(error => {
+                console.error('Error during submission:', error.message);
+            });
+    } else {
+        // If the form is invalid, prevent submission
+        price_form.reportValidity();
+    }
+});
+
+document.getElementById('brochure_form').addEventListener('submit', e => {
+    e.preventDefault();
+
+    const brochure_form = e.target;
+
+    // Check if all required fields are filled and valid
+    if (brochure_form.checkValidity()) {
+        // Additional validation for mobile number
+        const mobileNumber = brochure_form.querySelector('.phone').value;
+        const mobileNumberPattern = /^\d{10}$/;
+
+        if (!mobileNumberPattern.test(mobileNumber)) {
+            alert('Please enter a valid 10-digit mobile number.');
+            return; // Prevent form submission
+        }
+
+        showBrochurePleaseWait(); // Show "Please wait" message
+
+        // Get current date and time in Indian time zone
+        const currentTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+        // Append current time to form data
+        const formData = new FormData(brochure_form);
+        formData.append('Updated At', currentTime);
+
+        const plainFormData = {};
+        formData.forEach((value, key) => {
+            plainFormData[key] = value;
+        });
+
+        const name = plainFormData['Name'];
+        const phone = plainFormData['Phone'];
+        const email = plainFormData['email'] ?? '';
+        const timestamp = getTimestamp();
+        let utmSource =plainFormData['Lead_Source']!=""? utmSourceMatch(plainFormData['Lead_Source']) : "Google Ads";
+        let projectName= getProjectName(plainFormData['Project']);
+
+        // Construct URL with query parameters
+        let apiURL = getFilledAPi(name, phone, email, utmSource, timestamp, projectName);
+        fetch(apiURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Background API call failed');
+                }
+                return response.text(); 
+            })
+            .then(text => {
+                formData.append('API Response', text);
+
+                return fetch(script_URL, { method: 'POST', body: formData });
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = "thank-you.html";
+                } else {
+                    console.error('Google Sheet Error!', response.statusText);
+                }
+            })
+            .catch(error => {
+                console.error('Error during submission:', error.message);
+            });
+    } else {
+        // If the form is invalid, prevent submission
+        brochure_form.reportValidity();
+    }
+});
+
+document.getElementById('contact_form').addEventListener('submit', e => {
+    e.preventDefault();
+
+    const contact_form = e.target;
+
+    // Check if all required fields are filled and valid
+    if (contact_form.checkValidity()) {
+        // Additional validation for mobile number
+        const mobileNumber = contact_form.querySelector('.contact-phone').value;
+        const mobileNumberPattern = /^\d{10}$/;
+
+        if (!mobileNumberPattern.test(mobileNumber)) {
+            alert('Please enter a valid 10-digit mobile number.');
+            return; // Prevent form submission
+        }
+
+        showContactPleaseWait(); // Show "Please wait" message
+
+        // Get current date and time in Indian time zone
+        const currentTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+        // Append current time to form data
+        const formData = new FormData(contact_form);
+        formData.append('Updated At', currentTime);
+
+        const plainFormData = {};
+        formData.forEach((value, key) => {
+            plainFormData[key] = value;
+        });
+
+        const name = plainFormData['Name'];
+        const phone = plainFormData['Phone'];
+        const email = plainFormData['email'] ?? '';
+        const timestamp = getTimestamp();
+        let utmSource =plainFormData['Lead_Source']!=""? utmSourceMatch(plainFormData['Lead_Source']) : "Google Ads";
+        let projectName= getProjectName(plainFormData['Project']);
+
+        // Construct URL with query parameters
+        let apiURL = getFilledAPi(name, phone, email, utmSource, timestamp, projectName);
+        fetch(apiURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Background API call failed');
+                }
+                return response.text(); 
+            })
+            .then(text => {
+                formData.append('API Response', text);
+
+                return fetch(script_URL, { method: 'POST', body: formData });
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = "thank-you.html";
+                } else {
+                    console.error('Google Sheet Error!', response.statusText);
+                }
+            })
+            .catch(error => {
+                console.error('Error during submission:', error.message);
+            });
+    } else {
+        // If the form is invalid, prevent submission
+        contact_form.reportValidity();
+    }
+});
+
+
+document.getElementById('enquiry_form').addEventListener('submit', e => {
+    e.preventDefault();
+
+    const enquiry_form = e.target;
+
+    // Check if all required fields are filled and valid
+    if (enquiry_form.checkValidity()) {
+        // Additional validation for mobile number
+        const mobileNumber = enquiry_form.querySelector('.phone').value;
+        const mobileNumberPattern = /^\d{10}$/;
+
+        if (!mobileNumberPattern.test(mobileNumber)) {
+            alert('Please enter a valid 10-digit mobile number.');
+            return; // Prevent form submission
+        }
+
+        showEnquiryPleaseWait(); // Show "Please wait" message
+
+        // Get current date and time in Indian time zone
+        const currentTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+        // Append current time to form data
+        const formData = new FormData(enquiry_form);
+        formData.append('Updated At', currentTime);
+
+        const plainFormData = {};
+        formData.forEach((value, key) => {
+            plainFormData[key] = value;
+        });
+
+        const name = plainFormData['Name'];
+        const phone = plainFormData['Phone'];
+        const email = plainFormData['email'] ?? '';
+        const timestamp = getTimestamp();
+        let utmSource =plainFormData['Lead_Source']!=""? utmSourceMatch(plainFormData['Lead_Source']) : "Google Ads";
+        let projectName= getProjectName(plainFormData['Project']);
+
+        // Construct URL with query parameters
+        let apiURL = getFilledAPi(name, phone, email, utmSource, timestamp, projectName);
+        fetch(apiURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Background API call failed');
+                }
+                return response.text(); 
+            })
+            .then(text => {
+                formData.append('API Response', text);
+
+                return fetch(script_URL, { method: 'POST', body: formData });
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = "thank-you.html";
+                } else {
+                    console.error('Google Sheet Error!', response.statusText);
+                }
+            })
+            .catch(error => {
+                console.error('Error during submission:', error.message);
+            });
+    } else {
+        // If the form is invalid, prevent submission
+        enquiry_form.reportValidity();
+    }
+});
+
+function showOnLoadPleaseWait() {
+    // var modal = document.getElementById('please_wait_site');
+    // modal.style.display = 'block';
+    var button = document.getElementById('submit-button-onload');
+    var loadingText = button.getAttribute('data-loading-text');
+    button.innerHTML = loadingText;
+    button.classList.add('btn-disabled');
+    button.disabled = true;
+    var buttonText = button.innerHTML;
+    setTimeout(function() {
+        // Revert button text and enable it
+        button.innerHTML = buttonText;
+        button.classList.remove('btn-disabled');
+        button.disabled = false;
+    }, 5000);
+}
+
+function showSitePleaseWait() {
+    // var modal = document.getElementById('please_wait_site');
+    // modal.style.display = 'block';
+    var button = document.getElementById('submit-button-site');
+    var buttonText = button.innerHTML;
+    var loadingText = button.getAttribute('data-loading-text');
+    button.innerHTML = loadingText;
+    button.classList.add('btn-disabled');
+    button.disabled = true;
+    setTimeout(function() {
+        // Revert button text and enable it
+        button.innerHTML = buttonText;
+        button.classList.remove('btn-disabled');
+        button.disabled = false;
+    }, 5000);
+}
+
+function showPricePleaseWait() {
+    // var modal = document.getElementById('please_wait_site');
+    // modal.style.display = 'block';
+    var button = document.getElementById('submit-button-price');
+    var loadingText = button.getAttribute('data-loading-text');
+    button.innerHTML = loadingText;
+    button.classList.add('btn-disabled');
+    button.disabled = true;
+    var buttonText = button.innerHTML;
+    setTimeout(function() {
+        // Revert button text and enable it
+        button.innerHTML = buttonText;
+        button.classList.remove('btn-disabled');
+        button.disabled = false;
+    }, 5000);
+}
+
+function showBrochurePleaseWait() {
+    // var modal = document.getElementById('please_wait_site');
+    // modal.style.display = 'block';
+    var button = document.getElementById('submit-button-brochure');
+    var loadingText = button.getAttribute('data-loading-text');
+    button.innerHTML = loadingText;
+    button.classList.add('btn-disabled');
+    button.disabled = true;
+    var buttonText = button.innerHTML;
+    setTimeout(function() {
+        // Revert button text and enable it
+        button.innerHTML = buttonText;
+        button.classList.remove('btn-disabled');
+        button.disabled = false;
+    }, 5000);
+}
+
+function showContactPleaseWait() {
+    // var modal = document.getElementById('please_wait_site');
+    // modal.style.display = 'block';
+    var button = document.getElementById('submit-button-contact');
+    var loadingText = button.getAttribute('data-loading-text');
+    button.innerHTML = loadingText;
+    button.classList.add('btn-disabled');
+    button.disabled = true;
+    var buttonText = button.innerHTML;
+    setTimeout(function() {
+        // Revert button text and enable it
+        button.innerHTML = buttonText;
+        button.classList.remove('btn-disabled');
+        button.disabled = false;
+    }, 5000);
+}
+
+function showEnquiryPleaseWait() {
+    // var modal = document.getElementById('please_wait_site');
+    // modal.style.display = 'block';
+    var button = document.getElementById('submit-button-enquiry');
+    var loadingText = button.getAttribute('data-loading-text');
+    button.innerHTML = loadingText;
+    button.classList.add('btn-disabled');
+    button.disabled = true;
+    var buttonText = button.innerHTML;
+    setTimeout(function() {
+        // Revert button text and enable it
+        button.innerHTML = buttonText;
+        button.classList.remove('btn-disabled');
+        button.disabled = false;
+    }, 5000);
+}
+
+function showBrochureSuccessMessage() {
+    var downloadLink = document.createElement('a');
+    downloadLink.href = 'https://dsmaxproperties.net/vendor/brochures/DS-MAX-Saharagrand.pdf';
+    downloadLink.target = '_blank'; 
+    downloadLink.download = 'Saharagrand_Brochure.pdf';
+
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    window.location.href = "thank-you.html";
+    // Clean up: remove the link from the body after a short delay
+    setTimeout(function() {
+        document.body.removeChild(downloadLink);
+    }, 100);
+}
